@@ -157,6 +157,67 @@ class AddHandler(tornado.web.RequestHandler):
             self.write(jsonstr)
             self.finish()
 
+class RandHandler(tornado.web.RequestHandler):
+    @gen.coroutine
+    def get(self):
+        try:
+            
+            rtn['code']  = 0
+            rtn['info']  = "success"
+        except Exception as e:
+            rtn['code']  = -1
+            rtn['info']  = "error : {}".format(e)
+            logging.info(e)
+        finally:
+            jsonstr = json.dumps(rtn, ensure_ascii=False)
+            self.write(jsonstr)
+            self.finish()
+class SwitchHandler(tornado.web.RequestHandler):
+    @gen.coroutine
+    def get(self):
+        try:
+            
+            rtn['code']  = 0
+            rtn['info']  = "success"
+        except Exception as e:
+            rtn['code']  = -1
+            rtn['info']  = "error : {}".format(e)
+            logging.info(e)
+        finally:
+            jsonstr = json.dumps(rtn, ensure_ascii=False)
+            self.write(jsonstr)
+            self.finish()
+class RandTexturesHandler(tornado.web.RequestHandler):
+    @gen.coroutine
+    def get(self):
+        try:
+            
+            rtn['code']  = 0
+            rtn['info']  = "success"
+        except Exception as e:
+            rtn['code']  = -1
+            rtn['info']  = "error : {}".format(e)
+            logging.info(e)
+        finally:
+            jsonstr = json.dumps(rtn, ensure_ascii=False)
+            self.write(jsonstr)
+            self.finish()
+class SwitchTexturesHandler(tornado.web.RequestHandler):
+    @gen.coroutine
+    def get(self):
+        try:
+            
+            rtn['code']  = 0
+            rtn['info']  = "success"
+        except Exception as e:
+            rtn['code']  = -1
+            rtn['info']  = "error : {}".format(e)
+            logging.info(e)
+        finally:
+            jsonstr = json.dumps(rtn, ensure_ascii=False)
+            self.write(jsonstr)
+            self.finish()
+
 if __name__ == "__main__":
     tornado.options.parse_command_line()
     logging.info("web:recommend port %d start" % options.port)
@@ -169,12 +230,12 @@ if __name__ == "__main__":
     #/switch_textures/?id=1-23 根据 上一皮肤 顺序切换 同分组其他皮肤
     app = tornado.web.Application(
     handlers=[
-            (r"/add", AddHandler),
-            (r"/get", GetHandler),
-            #(r"/rand", RandHandler),
-            #(r"/switch", SwitchHandler),
-            #(r"/rand_textures", RandTexturesHandler),
-            #(r"/switch_textures", SwitchTexturesHandler),
+            ("/add", AddHandler),
+            ("/get", GetHandler),
+            ("/rand", RandHandler),
+            ("/switch", SwitchHandler),
+            ("/rand_textures", RandTexturesHandler),
+            ("/switch_textures", SwitchTexturesHandler),
             #(r"/(favicon\.ico)", tornado.web.StaticFileHandler, dict(path=settings['static_path']))],
             ]
     )
