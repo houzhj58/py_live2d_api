@@ -16,7 +16,8 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from tornado.options import options, parse_command_line, define
 from tornado.escape import json_encode, json_decode, url_escape
 import copy
-from model_list import modelList
+from modelList import modelList
+from modelTextures import modelTextures
 
 define("port", default=1234, help="run on the given port", type=int)
 define("file", default="config.yml", help="run on the given file", type=str)
@@ -33,77 +34,127 @@ class GetHandler(tornado.web.RequestHandler):
             if len(model_info) != 2:
                 raise Exception("The Format of id is XX-XX ")
             
-            modelId = (int)model_info[0]
-            modelTexturesId = (int)model_info[1]
+            modelId = (int)(model_info[0])
+            modelTexturesId = (int)(model_info[1])
             
             model_lst = modelList()
+            model_textures = modelTextures()
             #获取模型对应的名称
             modelName = model_lst.id_to_name(modelId)
-
+            index_json = {}
             if type(modelName) == list:
+                """类似于这种  ["ShizukuTalk/shizuku-48",  "ShizukuTalk/shizuku-pajama"]"""
                 if modelTexturesId > 0:
                     modelName = modelName[modelTexturesId -1]
                 else:
                     modelName = modelName[0]
-                index_json_file = '../model/' + modelName + '/index.json'
-                index_json = json.load(index_json_file)
+                index_json_file = 'model/' + modelName + '/index.json'
+                with open(index_json_file, "r") as f:
+                    index_json = json.load(f)
             else:
-                index_json_file = '../model/' + modelName + '/index.json'
-                index_json = json.load(index_json_file)
+                """类似于这种  "bilibili-live/22"   """
+                index_json_file = 'model/' + modelName + '/index.json'
+                with open(index_json_file, "r") as f:
+                    index_json = json.load(f)
                 if modelTexturesId > 0:
-                    modelTexturesName = modelTextures->get_name($modelName, $modelTexturesId);
-        if (isset($modelTexturesName)) $json['textures'] = is_array($modelTexturesName) ? $modelTexturesName : array($modelTexturesName);
-    }
-}
-
-$textures = json_encode($json['textures']);
-$textures = str_replace('texture', '../model/'.$modelName.'/texture', $textures);
-$textures = json_decode($textures, 1);
-$json['textures'] = $textures;
-
-$json['model'] = '../model/'.$modelName.'/'.$json['model'];
-if (isset($json['pose'])) $json['pose'] = '../model/'.$modelName.'/'.$json['pose'];
-if (isset($json['physics'])) $json['physics'] = '../model/'.$modelName.'/'.$json['physics'];
-
-if (isset($json['motions'])) {
-    $motions = json_encode($json['motions']);
-    $motions = str_replace('sounds', '../model/'.$modelName.'/sounds', $motions);
-    $motions = str_replace('motions', '../model/'.$modelName.'/motions', $motions);
-    $motions = json_decode($motions, 1);
-    $json['motions'] = $motions;
-}
-
-if (isset($json['expressions'])) {
-    $expressions = json_encode($json['expressions']);
-    $expressions = str_replace('expressions', '../model/'.$modelName.'/expressions', $expressions);
-    $expressions = json_decode($expressions, 1);
-    $json['expressions'] = $expressions;
-}
-
-header("Content-type: application/json");
-echo $jsonCompatible->json_encode($json);
-
-
-
+                    modelTexturesName = model_textures .get_name(modelName, modelTexturesId)
+                    index_json['textures'] = modelTexturesName
+            if "model" in index_json:
+                index_json['model'] = 'model/' + modelName  + '/' + index_json['model']
+            if "pose" in index_json:
+                index_json['pose'] = 'model/' + modelName + '/' + index_json['pose']
+            if "physics" in index_json:
+                index_json['physics'] = 'model/' + modelName + '/' + index_json['physics']
             
+            textures = json.dumps(index_json['textures'])
+            textures = textures.replace('texture', 'model/' + modelName + '/texture')
+            textures = json.loads(textures)
+            index_json['textures'] = textures
+
+            if "motions" in index_json:
+                motions = json.dumps(index_json['motions'])
+                motions = motions.replace('sounds', 'model/'+ modelName + '/sounds')
+                motions = motions.replace('motions', 'model/' + modelName + '/motions')
+                motions = json.loads(motions,)
+                index_json['motions'] = motions
+
+            if "expressions" in index_json:
+                expressions = json.dumps( index_json['expressions'])
+                expressions = expressions.replace('expressions', 'model/' + modelName + '/expressions')
+                expressions = json.loads(expressions)
+                index_json['expressions'] = expressions
+
+            #header("Content-type: application/json");
+            #echo $jsonCompatible->json_encode($index_json);    
+            #rtn = {}
+            index_json['code']  = 0
+            index_json['info']  = "success"
+
+        except Exception as e:
+            index_json['code']  = -1
+            index_json['info']  = "error : {}".format(e)
+            logging.info(e)
+        finally:
+            jsonstr = json.dumps(index_json, ensure_ascii=False)
+            self.write(jsonstr)
+            self.finish()
+
+class AddHandler(tornado.web.RequestHandler):
+    @gen.coroutine
+    def get(self):
+        try:
             rtn = {}
+            ml = modelList()
+            mt =modelTextures()
+
+            model_lst = ml.get_list()
+            model_lst = model_lst['models']
+
+            echo = list()
+            for model_name in model_lst:
+                if type(model_name) == list:
+                    continue
+                else:
+                    cache_file_path = 'model/' + model_name + '/textures.cache'
+                    if os.path.exists(cache_file_path):
+                        textures = list()
+                        textures_new = list()
+                        model_textures_lst = mt.get_list(model_name)
+                        model_name_textures = mt.get_textures(model_name)
+                        if type(model_textures_lst['textures']) is list:
+                            for texture in model_textures_lst['textures']:
+                                if type(texture) is list:
+                                    for tex in texture:
+                                        textures.append( tex.replace('\/', '/') )
+                                else:
+                                    textures.append( texture.replace('\/', '/') )
+                        if len(textures) == 0:
+                            continue
+                        if type(model_name_textures) is list:
+                            for texture in model_name_textures:
+                                textures_new.append( texture.replace("\/", '/' ))
+                        textures_diff = list( set( textures_new).difference(set(textures)))
+                        if len(textures_diff) == 0:
+                            echo.append(  model_name +  ' / textures.cache / No Update.')
+                        else:
+                            pass
+                            #foreach (array_values(array_unique(array_merge($textures, $texturesNew))) as $v) $texturesMerge[] = json_decode($v, 1);
+                            #file_put_contents('../model/'.$modelName.'/textures.cache', str_replace('\/', '/', json_encode($texturesMerge)));
+                            #echo '<p>'.$modelName.' / textures.cache / Updated.</p>';
+                    else:
+                        model_textures = mt.get_list(model_name)
+                        echo.append(model_name + ' / textures.cache / Created.') 
+
+            rtn['echo'] = echo
             rtn['code']  = 0
             rtn['info']  = "success"
-            
-            rtn['result'] = mongo_op.get_task_result(task_id, result_type)
-
-
         except Exception as e:
             rtn['code']  = -1
             rtn['info']  = "error : {}".format(e)
             logging.info(e)
         finally:
             jsonstr = json.dumps(rtn, ensure_ascii=False)
-            if cb is not None:
-                self.write(cb + "(" + jsonstr + ")")
-            else:
-                self.write(jsonstr)
-
+            self.write(jsonstr)
             self.finish()
 
 if __name__ == "__main__":
@@ -120,17 +171,18 @@ if __name__ == "__main__":
     handlers=[
             (r"/add", AddHandler),
             (r"/get", GetHandler),
-            (r"/rand", RandHandler),
-            (r"/switch", SwitchHandler),
-            (r"/rand_textures", RandTexturesHandler),
-            (r"/switch_textures", SwitchTexturesHandler),
-            (r"/(favicon\.ico)", tornado.web.StaticFileHandler, dict(path=settings['static_path']))],
-            manager=manager,mongo_op = mongo_op,kernel_url=kernel_url,kernel_port=kernel_port,kernel_list = kernel_list,max_num = max_num ,time_out = time_out,rt_flag = rt_flag,**settings)
+            #(r"/rand", RandHandler),
+            #(r"/switch", SwitchHandler),
+            #(r"/rand_textures", RandTexturesHandler),
+            #(r"/switch_textures", SwitchTexturesHandler),
+            #(r"/(favicon\.ico)", tornado.web.StaticFileHandler, dict(path=settings['static_path']))],
+            ]
+    )
     
     http_server = tornado.httpserver.HTTPServer(app)
     http_server.listen(options.port)
 
-    signal.signal(signal.SIGTERM, sig_handler)
-    signal.signal(signal.SIGINT, sig_handler)
+    #signal.signal(signal.SIGTERM, sig_handler)
+    #signal.signal(signal.SIGINT, sig_handler)
     
     tornado.ioloop.IOLoop.instance().start()
